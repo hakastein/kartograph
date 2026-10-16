@@ -24,7 +24,8 @@ commands are built on.
 - **One graph per worktree.** Each worktree, uncommitted changes included, gets its own immutable snapshot stored in
   LadybugDB under the user's cache. kartograph never writes to the source tree.
 - **One YAML document per answer** on stdout; an error is one YAML document on stderr with `code` first.
-- **Platforms:** Linux and macOS, amd64 and arm64. WSL counts as Linux.
+- **Target platforms:** Linux and macOS, amd64 and arm64, with WSL counted as Linux. Builds for these platforms are
+  planned and not yet verified; native Windows is not a target.
 
 ## Documentation
 

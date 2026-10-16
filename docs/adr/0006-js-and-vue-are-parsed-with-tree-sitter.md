@@ -21,12 +21,15 @@ endpoint. Код фронта — JavaScript, TypeScript и однофайлов
   и отдаёт дерево и для невалидного файла, поэтому kartograph проверяет дерево сам: такой файл даёт `index_failed`
   с причиной `parse_error` ([ADR-0003](0003-an-error-is-a-yaml-document-with-a-closed-code.md)), снимок не
   публикуется.
+- **Ошибка разбора файла в `node_modules` подчиняется правилу зависимостей**
+  ([ADR-0005](0005-dependencies-are-a-type-source.md)): неразрешённое место с причиной `dependency_unparsed`,
+  снимок публикуется.
 
 ## Не решено
 
-- Что из SFC Vue разбирается сверх блока `<script>`: выражения шаблона, `<script setup>`, язык блока по `lang`.
-- Ключи приватных JS-сущностей и анонимных функций — решаются в срезе JS/Vue.
-- Как к ошибкам разбора относятся файлы зависимостей фронта (`node_modules`).
+- Что из SFC Vue разбирается сверх блока `<script>`: выражения шаблона, `<script setup>`, язык блока по `lang` —
+  [DEV-14016](https://yt.macrodigital.ru/issue/DEV-14016).
+- Ключи приватных JS-сущностей и анонимных функций — [DEV-14016](https://yt.macrodigital.ru/issue/DEV-14016).
 
 ## Отвергнуто
 

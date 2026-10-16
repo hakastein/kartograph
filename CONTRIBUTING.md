@@ -29,7 +29,10 @@ CI runs the same target on every push and pull request.
   noverify, real LadybugDB files. Internal components are not replaced.
 - Pure argument functions (path normalization, placeholder parsing, symbol keys) are covered by table tests without a
   process.
-- Third-party libraries (noverify, LadybugDB, tree-sitter, cliche, cobra) are not tested, and prose is not compared.
+- Tests live in an external `_test` package and use table cases; a test body has no logic.
+- Assert values, not prose: no checks of messages or help text. Third-party libraries (noverify, LadybugDB,
+  tree-sitter, cliche, cobra) are not tested.
+- Every guarantee of an ADR is held by a test, and a mutation that removes the guarantee makes that test fail.
 
 ## Pull requests
 
