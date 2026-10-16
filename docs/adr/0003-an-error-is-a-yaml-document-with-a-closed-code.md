@@ -40,7 +40,7 @@ YAML-документом в stdout, а ошибку — YAML-документо
 |---|---|
 | `parse_error` | файл приложения не разобран ([ADR-0005](0005-dependencies-are-a-type-source.md), [ADR-0006](0006-js-and-vue-are-parsed-with-tree-sitter.md)) |
 | `analyzer_crashed` | упал анализатор |
-| `collector_failed` | сборщик бросил исключение или упал |
+| `collector_failed` | сборщик не прочитан или упал: объявление нечитаемо ([ADR-0002](0002-a-collector-declares-itself-in-a-cliche-key.md)), сборщик бросил исключение или упал |
 | `invalid_fact` | сборщик вернул невалидный факт |
 | `missing_symbol` | факт ссылается на отсутствующий символ |
 | `plan_cycle` | цикл в плане сборщиков ([ADR-0002](0002-a-collector-declares-itself-in-a-cliche-key.md)) |
