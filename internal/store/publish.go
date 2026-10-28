@@ -132,9 +132,8 @@ func (st *Staging) publish() ([]string, error) {
 	testhook.At("pointer-swapped")
 	if state != published {
 		st.lock.Close()
-		if err := os.Remove(filepath.Join(generation, buildLockName)); err != nil {
-			return trashed, err
-		}
+		// a lock file left without a holder does not hold the generation (ADR-0004); the snapshot is published already
+		os.Remove(filepath.Join(generation, buildLockName))
 	}
 	st.lock = nil
 	return trashed, nil

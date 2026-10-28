@@ -213,6 +213,13 @@ func nestedRepository(path string) step {
 	}
 }
 
+// repositoryOver makes the directory path, whose files the workspace may track, a repository of its own.
+func repositoryOver(path string) step {
+	return func(e *env, ws string) {
+		e.git(filepath.Join(ws, path), "init", "-q")
+	}
+}
+
 // submodule adds a repository with sub.txt next to the workspace as a submodule at path, by a relative URL.
 func submodule(path string) step {
 	return func(e *env, ws string) {
@@ -343,6 +350,8 @@ type action struct {
 	Times  int    `json:"times,omitempty"`
 	// Leases records how many lease files of the store have a holder.
 	Leases bool `json:"leases,omitempty"`
+	// Fail makes the point fail, as a crash of kartograph at it that unwinds.
+	Fail bool `json:"fail,omitempty"`
 }
 
 // hook is the test binary run by kartograph at a point. It logs the point and performs the actions for it.
@@ -366,6 +375,9 @@ func hook(point string) int {
 		}
 		if a.Leases {
 			appendLine(filepath.Join(dir, "leases"), fmt.Sprintf("%s %s %d", label, point, heldLeases()))
+		}
+		if a.Fail {
+			return 1
 		}
 		if a.Pause {
 			appendLine(filepath.Join(dir, label+"."+point+".reached"), "")
@@ -448,6 +460,7 @@ func (e *env) waitPaused(label, point string) {
 }
 
 func (e *env) release(label, point string) {
+	appendLine(filepath.Join(e.hooks, "log"), "T released")
 	appendLine(filepath.Join(e.hooks, label+"."+point+".go"), "")
 }
 

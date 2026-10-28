@@ -139,6 +139,14 @@ func TestIndexPublishesTheSnapshotOfTheWorktree(t *testing.T) {
 			dirty: true,
 		},
 		{
+			name: "nested repository over tracked files",
+			steps: []step{write("a.txt", "one\n"), write("nest/tracked.txt", "outer\n"), commit(),
+				repositoryOver("nest"), write("nest/tracked.txt", "inner\n")},
+			files: []file{{"a.txt", "file", "one\n"}},
+			head:  true,
+			dirty: true,
+		},
+		{
 			name:  "submodule",
 			steps: []step{write("a.txt", "one\n"), commit(), submodule("sub"), commit()},
 			files: []file{{".gitmodules", "file", "[submodule \"sub\"]\n\tpath = sub\n\turl = ../origin-sub\n"},

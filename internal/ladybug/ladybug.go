@@ -64,6 +64,10 @@ type Result struct {
 }
 
 func Open(path string, cfg Config) (*DB, error) {
+	// the engine's default pool takes 80% of RAM; every caller sets its own
+	if cfg.BufferPool == 0 {
+		return nil, fmt.Errorf("open the graph %s: no buffer pool size", path)
+	}
 	config := C.lbug_default_system_config()
 	config.buffer_pool_size = C.uint64_t(cfg.BufferPool)
 	config.max_num_threads = C.uint64_t(cfg.Threads)

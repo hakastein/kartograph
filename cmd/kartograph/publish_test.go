@@ -113,6 +113,127 @@ func TestBuildsOfOneWorkspaceTakeTurns(t *testing.T) {
 	require.Equal(t, want, newEnv(t).buildsOfOneWorkspace())
 }
 
+// overlap pauses the process paused at point inside the store lock, starts the other one, gives it a second to run
+// into the lock and releases the first; it returns the hook log of both at points and whether status shows the new
+// generation afterwards.
+func (e *env) overlap(paused, other []string, point string, points []string) ([]string, bool) {
+	ws := e.workspace("ws", write("a.txt", "one\n"), commit())
+	old := e.kg(ws, "index").Snapshot.Generation
+	write("a.txt", "two\n")(e, ws)
+	pause := action{Label: "P", Point: point, Pause: true}
+	p := e.start(ws, e.vars(e.hookVars("P", pause)...), paused...)
+	e.waitPaused("P", point)
+	o := e.start(ws, e.vars(e.hookVars("O", pause)...), other...)
+	time.Sleep(time.Second)
+	e.release("P", point)
+	p.wait(e.t)
+	o.wait(e.t)
+	return e.logged(points...), e.kg(ws, "status").Snapshot.Generation != old
+}
+
+func TestStoreLockSerializesPublicationAndReaders(t *testing.T) {
+	cases := []struct {
+		name          string
+		paused, other []string
+		point         string
+		points        []string
+		log           []string
+	}{
+		{name: "a reader waits for a publication", paused: []string{"index"}, other: []string{"status"},
+			point: "moved", points: []string{"moved", "released", "opening"},
+			log: []string{"P moved", "T released", "O opening"}},
+		{name: "a publication waits for a reader taking its lease", paused: []string{"status"},
+			other: []string{"index"}, point: "leasing", points: []string{"leasing", "released", "publish-locked"},
+			log: []string{"P leasing", "T released", "O publish-locked"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			log, published := newEnv(t).overlap(c.paused, c.other, c.point, c.points)
+			require.Equal(t, c.log, log)
+			require.True(t, published)
+		})
+	}
+}
+
+// failed is what a build that fails before publication leaves in the store, and whether status still shows the
+// previous generation.
+type failed struct {
+	Staging  []string
+	Trash    []string
+	Previous bool
+}
+
+func (e *env) failAt(point string) failed {
+	ws := e.workspace("ws", write("a.txt", "one\n"), commit())
+	old := e.kg(ws, "index").Snapshot.Generation
+	write("a.txt", "two\n")(e, ws)
+	r := e.run(ws, e.vars(e.hookVars("A", action{Point: point, Fail: true})...), "index")
+	require.NotEqual(e.t, 0, r.code)
+	return failed{Staging: e.entries("staging"), Trash: e.entries("trash"),
+		Previous: e.kg(ws, "status").Snapshot.Generation == old}
+}
+
+func TestFailedBuildMovesItsStagingAway(t *testing.T) {
+	cases := []struct{ point string }{{point: "graph-open"}}
+	for _, c := range cases {
+		t.Run(c.point, func(t *testing.T) {
+			t.Parallel()
+			want := failed{Staging: []string{}, Trash: []string{}, Previous: true}
+			require.Equal(t, want, newEnv(t).failAt(c.point))
+		})
+	}
+}
+
+// tampered is what index answers when the published generation of its identity was changed behind its back, and the
+// files of that generation afterwards.
+type tampered struct {
+	Exit  int
+	Code  string
+	Files []string
+}
+
+func (e *env) tamper(change func(e *env, manifest string)) tampered {
+	ws := e.workspace("ws", write("a.txt", "one\n"), commit())
+	generation := e.kg(ws, "index").Snapshot.Generation
+	dir := filepath.Join(e.store(), "generations", generation)
+	change(e, filepath.Join(dir, "manifest.json"))
+	r := e.run(ws, e.vars(), "index")
+	t := tampered{Exit: r.code, Files: e.list(dir)}
+	if r.code != 0 {
+		t.Code = parseFailure(e.t, r.stderr).Code
+	}
+	return t
+}
+
+func removeManifest(e *env, manifest string) {
+	require.NoError(e.t, os.Remove(manifest))
+}
+
+func replaceManifest(e *env, manifest string) {
+	require.NoError(e.t, os.Chmod(manifest, 0o644))
+	require.NoError(e.t, os.WriteFile(manifest, []byte("{}\n"), 0o444))
+}
+
+func TestGenerationIsReusedOnlyWithItsOwnManifest(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(e *env, manifest string)
+		want   tampered
+	}{
+		{name: "a generation without its manifest is built again", change: removeManifest,
+			want: tampered{Files: []string{"graph.lbug", "manifest.json"}}},
+		{name: "another manifest under the hash is an error", change: replaceManifest,
+			want: tampered{Exit: 1, Code: "internal", Files: []string{"graph.lbug", "manifest.json"}}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, c.want, newEnv(t).tamper(c.change))
+		})
+	}
+}
+
 // reuse is what the index of a second workspace with the same identity leaves.
 type reuse struct {
 	SameGeneration bool

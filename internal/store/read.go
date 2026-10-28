@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/hakastein/kartograph/internal/testhook"
 )
 
 // ErrNoSnapshot is a workspace without a published snapshot.
@@ -43,6 +45,7 @@ func (s *Store) Read(id string) (*Lease, error) {
 	if !ok || len(hash) != 64 || strings.Trim(hash, "0123456789abcdef") != "" {
 		return nil, fmt.Errorf("the pointer of workspace %s names %q", id, target)
 	}
+	testhook.At("leasing")
 	data, err := os.ReadFile(filepath.Join(dir, recordName(hash)))
 	if err != nil {
 		return nil, err

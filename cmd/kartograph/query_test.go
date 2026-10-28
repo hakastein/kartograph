@@ -146,6 +146,7 @@ func TestQueryRejectsStatementsThatWrite(t *testing.T) {
 		{name: "begin a transaction", statement: "BEGIN TRANSACTION"},
 		{name: "set an option", statement: "CALL threads=1"},
 		{name: "attach a database", statement: "ATTACH '$OUT/other.lbug' AS other (dbtype lbug)"},
+		{name: "install an extension", statement: "INSTALL json"},
 		{name: "two statements", statement: "RETURN 1; RETURN 2"},
 		{name: "a syntax error", statement: "MATCH (f:File RETURN f"},
 	}

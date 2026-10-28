@@ -110,6 +110,7 @@ type stamp struct {
 	size    int64
 	mtime   int64
 	ctime   int64
+	dev     uint64
 	ino     uint64
 }
 
@@ -135,14 +136,19 @@ func (w *Workspace) look() (look, error) {
 	return look{head: head, paths: paths, stamps: stamps}, nil
 }
 
-// paths lists the worktree or submodule checkout dir at prefix and descends into checked-out submodules.
+// paths lists the worktree or submodule checkout dir at prefix and descends into checked-out submodules. A path under
+// a directory that holds its own .git belongs to a nested repository and is left out, even when dir tracks it.
 func (w *Workspace) paths(dir, prefix string) ([]string, error) {
 	listed, err := w.list(dir, prefix)
 	if err != nil {
 		return nil, err
 	}
+	repos := map[string]bool{}
 	var paths []string
 	for _, p := range listed {
+		if w.nested(dir, strings.TrimPrefix(p, prefix), repos) {
+			continue
+		}
 		full := w.full(p)
 		info, err := os.Lstat(full)
 		if err != nil || !info.IsDir() {
@@ -189,6 +195,23 @@ func pathDir(p string) string {
 		return ""
 	}
 	return p[:i]
+}
+
+// nested tells whether a directory above the slash-separated path rel inside dir holds a .git of its own; repos caches
+// the answer per directory.
+func (w *Workspace) nested(dir, rel string, repos map[string]bool) bool {
+	for d := pathDir(rel); d != ""; d = pathDir(d) {
+		repo, seen := repos[d]
+		if !seen {
+			_, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(d), ".git"))
+			repo = err == nil
+			repos[d] = repo
+		}
+		if repo {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *Workspace) full(p string) string {
@@ -251,7 +274,10 @@ func readFile(path string, s stamp) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if opened := stampOf(info); opened.ino != s.ino || opened.size != s.size || opened.mtime != s.mtime {
+	// the opened file must be the very file lstat saw at the path: a parent swapped for a symlink while the path is
+	// opened leads to another file
+	if opened := stampOf(info); opened.dev != s.dev || opened.ino != s.ino || opened.size != s.size ||
+		opened.mtime != s.mtime {
 		return nil, errChanged
 	}
 	return io.ReadAll(f)

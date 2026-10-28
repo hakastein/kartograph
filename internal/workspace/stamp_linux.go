@@ -13,6 +13,7 @@ func stampOf(info fs.FileInfo) stamp {
 		size:    info.Size(),
 		mtime:   info.ModTime().UnixNano(),
 		ctime:   st.Ctim.Nano(),
+		dev:     uint64(st.Dev),
 		ino:     st.Ino,
 	}
 }
