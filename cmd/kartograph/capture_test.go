@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -67,12 +68,15 @@ func TestCaptureRetriesAndGivesUpOnAChangingTree(t *testing.T) {
 }
 
 // indexWhileSwapping indexes a workspace whose directory d is swapped, between listing and reading, for a link to a
-// directory outside with a file of the same name, and put back before the listing is checked again; it returns the
-// files of the published snapshot.
+// directory outside with a file of the same name, size and modification time, and put back before the listing is
+// checked again; it returns the files of the published snapshot.
 func (e *env) indexWhileSwapping() [][]any {
 	ws := e.workspace("ws", write("d/a.txt", "mine\n"), commit())
 	foreign := filepath.Join(e.dir, "foreign")
-	write("a.txt", "foreign\n")(e, foreign)
+	write("a.txt", "evil\n")(e, foreign)
+	mine, err := os.Lstat(filepath.Join(ws, "d", "a.txt"))
+	require.NoError(e.t, err)
+	require.NoError(e.t, os.Chtimes(filepath.Join(foreign, "a.txt"), mine.ModTime(), mine.ModTime()))
 	d, aside := filepath.Join(ws, "d"), filepath.Join(e.dir, "aside")
 	swap := []action{{Point: "listed", Swap: []string{d, aside, foreign}}, {Point: "captured", Unswap: []string{d, aside}}}
 	r := e.run(ws, e.vars(e.hookVars("I", swap...)...), "index")
