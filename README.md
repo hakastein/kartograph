@@ -8,8 +8,20 @@ symbol to tables (`trace`), the endpoints, entry points and tables a change touc
 the difference between two states of code (`diff`), where an edge comes from (`explain`) and how much of each link of
 the chain is resolved (`coverage`).
 
-**Status: in development.** There are no commands yet. The repository holds the design records that the first
-commands are built on.
+**Status: in development.** The first commands capture a worktree and publish its snapshot (`index`), show the
+published snapshot (`status`) and run a read-only Cypher query on it (`query`); the graph holds the files of the
+snapshot.
+
+## Building
+
+kartograph links the LadybugDB static library, so a build needs Go, a C and C++ compiler, the OpenSSL 3 headers and
+libraries, `curl` and `sha256sum`. Linux amd64 is the only pinned platform.
+
+```bash
+make build   # downloads the pinned LadybugDB library, checks its digest, builds bin/kartograph
+```
+
+The binary needs `libstdc++` and OpenSSL 3 at run time.
 
 ## Design in brief
 
