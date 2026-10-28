@@ -16,7 +16,7 @@ Bug reports and pull requests are welcome on [GitHub](https://github.com/hakaste
 ## Development
 
 ```bash
-make go   # gofmt check, go vet, go test -race
+make go   # fetches the pinned LadybugDB library, gofmt check, go vet, go test -race
 ```
 
 CI runs the same target on every push and pull request.

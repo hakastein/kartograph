@@ -15,4 +15,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/cache@v4
+        with:
+          path: internal/ladybug/lib
+          key: ladybug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('internal/ladybug/fetch.sh') }}
       - run: make go
