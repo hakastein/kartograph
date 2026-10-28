@@ -3,6 +3,9 @@ package main_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,9 +116,9 @@ func TestBuildsOfOneWorkspaceTakeTurns(t *testing.T) {
 	require.Equal(t, want, newEnv(t).buildsOfOneWorkspace())
 }
 
-// overlap pauses the process paused at point inside the store lock, starts the other one, gives it a second to run
-// into the lock and releases the first; it returns the hook log of both at points and whether status shows the new
-// generation afterwards.
+// overlap pauses the process paused at point inside the store lock, starts the other one, waits until it waits for a
+// lock or gets past the lock and releases the first; it returns the hook log of both at points and whether status
+// shows the new generation afterwards.
 func (e *env) overlap(paused, other []string, point string, points []string) ([]string, bool) {
 	ws := e.workspace("ws", write("a.txt", "one\n"), commit())
 	old := e.kg(ws, "index").Snapshot.Generation
@@ -124,11 +127,27 @@ func (e *env) overlap(paused, other []string, point string, points []string) ([]
 	p := e.start(ws, e.vars(e.hookVars("P", pause)...), paused...)
 	e.waitPaused("P", point)
 	o := e.start(ws, e.vars(e.hookVars("O", pause)...), other...)
-	time.Sleep(time.Second)
+	require.Eventually(e.t, func() bool {
+		return waitsForLock(e.t, o.cmd.Process.Pid) || slices.ContainsFunc(e.logged(points...), func(line string) bool {
+			return strings.HasPrefix(line, "O ")
+		})
+	}, time.Minute, 10*time.Millisecond)
 	e.release("P", point)
 	p.wait(e.t)
 	o.wait(e.t)
 	return e.logged(points...), e.kg(ws, "status").Snapshot.Generation != old
+}
+
+// waitsForLock tells whether the process pid waits for a file lock: /proc/locks marks a waiter with "->".
+func waitsForLock(t *testing.T, pid int) bool {
+	data, err := os.ReadFile("/proc/locks")
+	require.NoError(t, err)
+	for _, line := range strings.Split(string(data), "\n") {
+		if fields := strings.Fields(line); len(fields) > 5 && fields[1] == "->" && fields[5] == strconv.Itoa(pid) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestStoreLockSerializesPublicationAndReaders(t *testing.T) {

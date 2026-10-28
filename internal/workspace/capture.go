@@ -70,6 +70,7 @@ func (w *Workspace) attempt(blobs Blobs) (*Capture, error) {
 	if err != nil {
 		return nil, err
 	}
+	testhook.At("listed")
 	files, err := w.read(before, blobs)
 	if errors.Is(err, errChanged) {
 		return nil, nil

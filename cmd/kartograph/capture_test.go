@@ -65,3 +65,27 @@ func TestCaptureRetriesAndGivesUpOnAChangingTree(t *testing.T) {
 		})
 	}
 }
+
+// indexWhileSwapping indexes a workspace whose directory d is swapped, between listing and reading, for a link to a
+// directory outside with a file of the same name, and put back before the listing is checked again; it returns the
+// files of the published snapshot.
+func (e *env) indexWhileSwapping() [][]any {
+	ws := e.workspace("ws", write("d/a.txt", "mine\n"), commit())
+	foreign := filepath.Join(e.dir, "foreign")
+	write("a.txt", "foreign\n")(e, foreign)
+	d, aside := filepath.Join(ws, "d"), filepath.Join(e.dir, "aside")
+	swap := []action{{Point: "listed", Swap: []string{d, aside, foreign}}, {Point: "captured", Unswap: []string{d, aside}}}
+	r := e.run(ws, e.vars(e.hookVars("I", swap...)...), "index")
+	require.Equal(e.t, 0, r.code, r.stderr)
+	return e.kg(ws, "query", filesQuery).Rows
+}
+
+func TestCaptureReadsOnlyTheFileAtItsPathInTheWorktree(t *testing.T) {
+	cases := []struct{ name string }{{name: "a parent swapped for a link outside while it is read"}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, rowsOf([]file{{"d/a.txt", "file", "mine\n"}}), newEnv(t).indexWhileSwapping())
+		})
+	}
+}

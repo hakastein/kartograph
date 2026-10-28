@@ -352,6 +352,10 @@ type action struct {
 	Leases bool `json:"leases,omitempty"`
 	// Fail makes the point fail, as a crash of kartograph at it that unwinds.
 	Fail bool `json:"fail,omitempty"`
+	// Swap moves the directory Swap[0] to Swap[1] and links Swap[0] to Swap[2], the first time the point is reached.
+	Swap []string `json:"swap,omitempty"`
+	// Unswap moves a directory swapped away from Unswap[0] to Unswap[1] back to its place.
+	Unswap []string `json:"unswap,omitempty"`
 }
 
 // hook is the test binary run by kartograph at a point. It logs the point and performs the actions for it.
@@ -378,6 +382,17 @@ func hook(point string) int {
 		}
 		if a.Fail {
 			return 1
+		}
+		if swapped := filepath.Join(dir, "swapped"); len(a.Swap) == 3 && len(readLines(swapped)) == 0 {
+			appendLine(swapped, "")
+			must(os.Rename(a.Swap[0], a.Swap[1]))
+			must(os.Symlink(a.Swap[2], a.Swap[0]))
+		}
+		if len(a.Unswap) == 2 {
+			if _, err := os.Lstat(a.Unswap[1]); err == nil {
+				must(os.Remove(a.Unswap[0]))
+				must(os.Rename(a.Unswap[1], a.Unswap[0]))
+			}
 		}
 		if a.Pause {
 			appendLine(filepath.Join(dir, label+"."+point+".reached"), "")
@@ -412,6 +427,12 @@ func heldLeases() int {
 		f.Close()
 	}
 	return held
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func appendLine(path, line string) {
